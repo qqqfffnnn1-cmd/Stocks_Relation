@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>股票关联度分析工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .input-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr auto;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-group label {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .input-group input {
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            align-self: flex-end;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+        }
+
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #fee;
+            border-left: 4px solid #f44;
+            padding: 15px;
+            border-radius: 8px;
+            color: #c33;
+            margin-bottom: 20px;
+        }
+
+        .result-section {
+            display: none;
+        }
+
+        .result-section.show {
+            display: block;
+        }
+
+        .score-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .score-value {
+            font-size: 4em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .score-grade {
+            font-size: 1.5em;
+            opacity: 0.9;
+        }
+
+        .stars {
+            font-size: 2em;
+            margin: 10px 0;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .info-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .info-card h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: #666;
+            font-weight: 500;
+        }
+
+        .info-value {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .metric-card {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .metric-card h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .metric-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .metric-item:last-child {
+            border-bottom: none;
+        }
+
+        .metric-label {
+            color: #666;
+        }
+
+        .metric-value {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .metric-value.positive {
+            color: #4caf50;
+        }
+
+        .metric-value.negative {
+            color: #f44336;
+        }
+
+        .conclusion {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .conclusion h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .conclusion p {
+            color: #666;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 768px) {
+            .input-section {
+                grid-template-columns: 1fr;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 股票关联度分析工具</h1>
+            <p>基于价格联动和资金共振的多维度关联分析</p>
+        </div>
+
+        <div class="card">
+            <div class="input-section">
+                <div class="input-group">
+                    <label for="stock1">股票代码 1</label>
+                    <input type="text" id="stock1" placeholder="如: 300394" value="300394">
+                </div>
+                <div class="input-group">
+                    <label for="stock2">股票代码 2</label>
+                    <input type="text" id="stock2" placeholder="如: 300308" value="300308">
+                </div>
+                <div class="input-group">
+                    <label for="days">分析天数</label>
+                    <input type="number" id="days" placeholder="10-365" value="90" min="10" max="365">
+                </div>
+                <button class="btn btn-primary" id="analyzeBtn" onclick="analyze()">开始分析</button>
+            </div>
+
+            <div id="errorMsg"></div>
+            <div id="loadingMsg" class="loading" style="display: none;">
+                <div class="loading-spinner"></div>
+                <p>正在分析中，请稍候...</p>
+            </div>
+        </div>
+
+        <div id="resultSection" class="result-section">
+            <!-- 综合评分卡片 -->
+            <div class="score-card">
+                <div>综合关联度评分</div>
+                <div class="score-value" id="overallScore">--</div>
+                <div class="stars" id="stars">--</div>
+                <div class="score-grade" id="grade">--</div>
+            </div>
+
+            <!-- 股票基本信息 -->
+            <div class="card">
+                <h2 style="margin-bottom: 20px;">基本信息</h2>
+                <div class="info-grid">
+                    <div class="info-card">
+                        <h3 id="stock1Name">股票 1</h3>
+                        <div class="info-row">
+                            <span class="info-label">代码</span>
+                            <span class="info-value" id="stock1Code">--</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">行业</span>
+                            <span class="info-value" id="stock1Industry">--</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">最新价</span>
+                            <span class="info-value" id="stock1Price">--</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">涨跌幅</span>
+                            <span class="info-value" id="stock1Change">--</span>
+                        </div>
+                    </div>
+                    <div class="info-card">
+                        <h3 id="stock2Name">股票 2</h3>
+                        <div class="info-row">
+                            <span class="info-label">代码</span>
+                            <span class="info-value" id="stock2Code">--</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">行业</span>
+                            <span class="info-value" id="stock2Industry">--</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">最新价</span>
+                            <span class="info-value" id="stock2Price">--</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">涨跌幅</span>
+                            <span class="info-value" id="stock2Change">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 价格联动分析 -->
+            <div class="card">
+                <div class="metric-card">
+                    <h3>💹 价格联动分析</h3>
+                    <div class="metric-item">
+                        <span class="metric-label">价格相关系数</span>
+                        <span class="metric-value" id="priceCorr">--</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">涨跌幅相关系数</span>
+                        <span class="metric-value" id="pctCorr">--</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">同涨同跌率</span>
+                        <span class="metric-value" id="syncRate">--</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">波动相似度</span>
+                        <span class="metric-value" id="volatility">--</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">领先滞后关系</span>
+                        <span class="metric-value" id="leadLag">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 资金共振分析 -->
+            <div class="card">
+                <div class="metric-card">
+                    <h3>💰 资金共振分析</h3>
+                    <div class="metric-item">
+                        <span class="metric-label">资金共振评分</span>
+                        <span class="metric-value" id="capitalScore">--</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">共同席位数量</span>
+                        <span class="metric-value" id="commonSeats">--</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">席位重叠率</span>
+                        <span class="metric-value" id="overlapRate">--</span>
+                    </div>
+                    <div id="lhbDetails"></div>
+                </div>
+            </div>
+
+            <!-- 分析结论 -->
+            <div class="card">
+                <div class="conclusion">
+                    <h3>📝 分析结论</h3>
+                    <p id="conclusionText">--</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function analyze() {
+            const stock1 = document.getElementById('stock1').value.trim();
+            const stock2 = document.getElementById('stock2').value.trim();
+            const days = parseInt(document.getElementById('days').value);
+
+            // 清空错误信息
+            document.getElementById('errorMsg').innerHTML = '';
+            document.getElementById('resultSection').classList.remove('show');
+
+            // 验证输入
+            if (!stock1 || !stock2) {
+                showError('请输入股票代码');
+                return;
+            }
+
+            if (days < 10 || days > 365) {
+                showError('分析天数必须在 10-365 之间');
+                return;
+            }
+
+            // 显示加载状态
+            document.getElementById('loadingMsg').style.display = 'block';
+            document.getElementById('analyzeBtn').disabled = true;
+
+            try {
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ stock1, stock2, days })
+                });
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    showError(result.error);
+                    return;
+                }
+
+                // 显示结果
+                displayResult(result.data);
+
+            } catch (error) {
+                showError('网络错误: ' + error.message);
+            } finally {
+                document.getElementById('loadingMsg').style.display = 'none';
+                document.getElementById('analyzeBtn').disabled = false;
+            }
+        }
+
+        function showError(message) {
+            document.getElementById('errorMsg').innerHTML =
+                `<div class="error">${message}</div>`;
+        }
+
+        function displayResult(data) {
+            // 综合评分
+            const overall = data.overall_score;
+            document.getElementById('overallScore').textContent = overall.score;
+            document.getElementById('stars').textContent = overall.stars;
+            document.getElementById('grade').textContent = overall.grade;
+
+            // 股票1信息
+            const stock1 = data.stock1;
+            document.getElementById('stock1Name').textContent = stock1.name;
+            document.getElementById('stock1Code').textContent = stock1.code;
+            document.getElementById('stock1Industry').textContent = stock1.industry || 'N/A';
+            document.getElementById('stock1Price').textContent = stock1.latest_price.toFixed(2);
+            document.getElementById('stock1Change').textContent = stock1.pct_change.toFixed(2) + '%';
+            document.getElementById('stock1Change').className = 'info-value ' +
+                (stock1.pct_change >= 0 ? 'positive' : 'negative');
+
+            // 股票2信息
+            const stock2 = data.stock2;
+            document.getElementById('stock2Name').textContent = stock2.name;
+            document.getElementById('stock2Code').textContent = stock2.code;
+            document.getElementById('stock2Industry').textContent = stock2.industry || 'N/A';
+            document.getElementById('stock2Price').textContent = stock2.latest_price.toFixed(2);
+            document.getElementById('stock2Change').textContent = stock2.pct_change.toFixed(2) + '%';
+            document.getElementById('stock2Change').className = 'info-value ' +
+                (stock2.pct_change >= 0 ? 'positive' : 'negative');
+
+            // 价格联动
+            const price = data.price_correlation;
+            document.getElementById('priceCorr').textContent = price.correlation.toFixed(4);
+            document.getElementById('pctCorr').textContent = price.pct_correlation.toFixed(4);
+            document.getElementById('syncRate').textContent =
+                (price.sync_rate * 100).toFixed(1) + '% (' + price.sync_days + '/' + price.total_days + '天)';
+            document.getElementById('volatility').textContent = price.volatility_ratio.toFixed(4);
+
+            // 领先滞后
+            const leadLag = price.lead_lag;
+            let leadLagText = '';
+            if (leadLag.lead_stock === 0) {
+                leadLagText = '基本同步';
+            } else if (leadLag.lead_stock === 1) {
+                leadLagText = stock1.name + ' 领先 ' + leadLag.lag_days + ' 天';
+            } else {
+                leadLagText = stock2.name + ' 领先 ' + leadLag.lag_days + ' 天';
+            }
+            document.getElementById('leadLag').textContent = leadLagText;
+
+            // 资金共振
+            const capital = data.capital_resonance;
+            document.getElementById('capitalScore').textContent = capital.score + '/100';
+
+            if (capital.details.error) {
+                document.getElementById('commonSeats').textContent = 'N/A';
+                document.getElementById('overlapRate').textContent = 'N/A';
+                document.getElementById('lhbDetails').innerHTML =
+                    '<p style="color: #999; margin-top: 10px;">暂无龙虎榜数据</p>';
+            } else {
+                document.getElementById('commonSeats').textContent = capital.details.overlap_count + '个';
+                document.getElementById('overlapRate').textContent =
+                    (capital.details.overlap_rate * 100).toFixed(1) + '%';
+            }
+
+            // 分析结论
+            let conclusion = '';
+            if (overall.score >= 80) {
+                conclusion = '✅ 强关联：两只股票在价格走势和资金流向上高度一致，存在显著的联动效应。';
+            } else if (overall.score >= 60) {
+                conclusion = '⚠️ 中等关联：两只股票有一定的联动性，但并非完全同步。';
+            } else {
+                conclusion = '❌ 弱关联：两只股票关联度较低，走势相对独立。';
+            }
+
+            if (price.correlation > 0.7) {
+                conclusion += ' 价格高度正相关，可考虑配对交易或板块轮动策略。';
+            }
+
+            document.getElementById('conclusionText').textContent = conclusion;
+
+            // 显示结果区域
+            document.getElementById('resultSection').classList.add('show');
+            document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // 回车键触发分析
+        document.addEventListener('DOMContentLoaded', function() {
+            ['stock1', 'stock2', 'days'].forEach(id => {
+                document.getElementById(id).addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        analyze();
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
