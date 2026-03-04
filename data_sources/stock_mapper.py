@@ -19,9 +19,23 @@ class StockNameMapper:
 
     def _load_cache(self):
         """加载缓存"""
-        # 优先使用 TK_EastMoney 的完整缓存
-        # __file__ 是 TK_StockRelation/data_sources/stock_mapper.py
-        # parent = data_sources, parent.parent = TK_StockRelation, parent.parent.parent = CCVSCODE
+        # 优先使用项目内的股票名称缓存（用于部署）
+        local_eastmoney_cache = Path(__file__).parent / "stock_names_cache.json"
+
+        if local_eastmoney_cache.exists():
+            try:
+                with open(local_eastmoney_cache, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    # 检查缓存是否过期（30天）
+                    cache_date = datetime.fromisoformat(data.get('date', '2000-01-01'))
+                    if datetime.now() - cache_date < timedelta(days=30):
+                        self.stock_map = data.get('a', {})
+                        print(f"已加载本地缓存：{len(self.stock_map)} 只股票")
+                        return
+            except Exception as e:
+                print(f"加载本地缓存失败: {e}")
+
+        # 其次尝试 TK_EastMoney 的完整缓存（本地开发环境）
         ccvscode_root = Path(__file__).parent.parent.parent
         eastmoney_cache = ccvscode_root / "TK_EastMoney" / "stock_names_cache.json"
 
@@ -32,17 +46,13 @@ class StockNameMapper:
                     # 检查缓存是否过期（30天）
                     cache_date = datetime.fromisoformat(data.get('date', '2000-01-01'))
                     if datetime.now() - cache_date < timedelta(days=30):
-                        self.stock_map = data.get('a', {})  # TK_EastMoney 格式是 {"date": "...", "a": {...}}
+                        self.stock_map = data.get('a', {})
                         print(f"已加载 TK_EastMoney 缓存：{len(self.stock_map)} 只股票")
                         return
-                    else:
-                        print(f"TK_EastMoney 缓存已过期（{cache_date}）")
             except Exception as e:
                 print(f"加载 TK_EastMoney 缓存失败: {e}")
-        else:
-            print(f"TK_EastMoney 缓存不存在: {eastmoney_cache}")
 
-        # 其次使用本地缓存
+        # 再次使用 cache 目录缓存
         if self.cache_file.exists():
             try:
                 with open(self.cache_file, 'r', encoding='utf-8') as f:
