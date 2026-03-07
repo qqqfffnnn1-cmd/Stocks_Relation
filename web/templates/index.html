@@ -384,6 +384,10 @@
                     <div class="info-card">
                         <h3 id="stock1Name">股票 1</h3>
                         <div class="info-row">
+                            <span class="info-label">名称</span>
+                            <span class="info-value" id="stock1NameRow">--</span>
+                        </div>
+                        <div class="info-row">
                             <span class="info-label">代码</span>
                             <span class="info-value" id="stock1Code">--</span>
                         </div>
@@ -402,6 +406,10 @@
                     </div>
                     <div class="info-card">
                         <h3 id="stock2Name">股票 2</h3>
+                        <div class="info-row">
+                            <span class="info-label">名称</span>
+                            <span class="info-value" id="stock2NameRow">--</span>
+                        </div>
                         <div class="info-row">
                             <span class="info-label">代码</span>
                             <span class="info-value" id="stock2Code">--</span>
@@ -477,6 +485,10 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <div style="text-align: center; color: rgba(255,255,255,0.6); padding: 20px 0 10px; font-size: 0.85em;">
+        Copyright &copy; Fiona Qu
     </div>
 
     <script>
@@ -671,6 +683,7 @@
             // 股票1信息
             const stock1 = data.stock1;
             document.getElementById('stock1Name').textContent = stock1.name;
+            document.getElementById('stock1NameRow').textContent = stock1.name;
             document.getElementById('stock1Code').textContent = stock1.code;
             document.getElementById('stock1Industry').textContent = stock1.industry || 'N/A';
             document.getElementById('stock1Price').textContent = stock1.latest_price.toFixed(2);
@@ -681,6 +694,7 @@
             // 股票2信息
             const stock2 = data.stock2;
             document.getElementById('stock2Name').textContent = stock2.name;
+            document.getElementById('stock2NameRow').textContent = stock2.name;
             document.getElementById('stock2Code').textContent = stock2.code;
             document.getElementById('stock2Industry').textContent = stock2.industry || 'N/A';
             document.getElementById('stock2Price').textContent = stock2.latest_price.toFixed(2);
