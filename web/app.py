@@ -153,37 +153,3 @@ if __name__ == '__main__':
     print("按 Ctrl+C 停止服务\n")
 
     app.run(host='0.0.0.0', port=5000, debug=True)
-
-@app.route('/api/search_stock', methods=['GET'])
-def search_stock():
-    """
-    搜索股票（自动补全）
-
-    参数:
-        q: 搜索关键词（代码或名称）
-
-    返回:
-        匹配的股票列表
-    """
-    try:
-        keyword = request.args.get('q', '').strip()
-
-        if not keyword:
-            return jsonify({
-                'success': True,
-                'data': []
-            })
-
-        # 搜索股票
-        results = stock_mapper.search(keyword, limit=10)
-
-        return jsonify({
-            'success': True,
-            'data': results
-        })
-
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
