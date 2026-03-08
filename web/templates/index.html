@@ -1068,6 +1068,122 @@
             document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
             document.getElementById('tab-' + tab).classList.add('active');
             event.target.classList.add('active');
+            if (tab === 'divergence' && !window._divLoaded) loadDivergence();
+        }
+
+        // ══════════════ 板块异类 ══════════════
+        let _divData = null;
+        let _divSub = 'board';
+
+        function switchDivSub(sub) {
+            _divSub = sub;
+            ['board','daily','weekly','total'].forEach(s => {
+                document.getElementById('divPanel' + s.charAt(0).toUpperCase() + s.slice(1)).style.display = s === sub ? '' : 'none';
+                document.getElementById('divSub' + s.charAt(0).toUpperCase() + s.slice(1)).classList.toggle('active', s === sub);
+            });
+        }
+
+        function scoreChip(v) {
+            const cls = v >= 65 ? 'score-high' : v >= 45 ? 'score-mid' : 'score-low';
+            return `<span class="score-chip ${cls}">${v.toFixed(0)}</span>`;
+        }
+        function typeTag(t) {
+            if (t === '独立走强') return `<span class="type-strong">↑走强</span>`;
+            if (t === '独立走弱') return `<span class="type-weak">↓走弱</span>`;
+            return `<span class="type-div">~分化</span>`;
+        }
+        function exFmt(v) {
+            const c = v > 0 ? 'color:#2e7d32' : v < 0 ? 'color:#c62828' : '';
+            return `<span style="${c}">${v > 0 ? '+' : ''}${v.toFixed(1)}%</span>`;
+        }
+
+        function renderStockTable(stocks, scoreCol, exCol, csCol, cbCol) {
+            if (!stocks.length) return '<p style="color:#999;padding:8px">暂无数据</p>';
+            let html = `<table class="div-table">
+                <thead><tr>
+                    <th>#</th><th>代码</th><th>名称</th><th>行业</th>
+                    <th>额(亿)</th><th>类型</th><th>异类分</th>
+                    <th>corr</th><th>超额%</th><th>个股%</th><th>板块%</th>
+                </tr></thead><tbody>`;
+            stocks.forEach((s, i) => {
+                const sc = s[scoreCol], ex = s[exCol], cs = s[csCol], cb = s[cbCol];
+                const corrKey = scoreCol === 'd_sc' ? 'd_co' : 'w_co';
+                html += `<tr>
+                    <td style="color:#aaa">${i+1}</td>
+                    <td style="font-family:monospace;color:#555">${s.code}</td>
+                    <td style="font-weight:600">${s.name}</td>
+                    <td style="color:#888;font-size:0.82em">${s.board}</td>
+                    <td>${s.amt.toFixed(0)}</td>
+                    <td>${typeTag(s.type)}</td>
+                    <td>${scoreChip(sc)}</td>
+                    <td style="color:#555">${s[corrKey].toFixed(2)}</td>
+                    <td>${exFmt(ex)}</td>
+                    <td>${exFmt(cs)}</td>
+                    <td style="color:#888">${exFmt(cb)}</td>
+                </tr>`;
+            });
+            return html + '</tbody></table>';
+        }
+
+        function renderBoardList(boardStats) {
+            const el = document.getElementById('divBoardList');
+            if (!boardStats.length) { el.innerHTML = '<p style="color:#999">暂无数据</p>'; return; }
+            const maxScore = boardStats[0].avg_total || 1;
+            el.innerHTML = boardStats.map((b, i) => {
+                const pct = Math.round(b.avg_total / maxScore * 100);
+                return `<div class="board-row">
+                    <div class="board-header" onclick="toggleBoard(${i})">
+                        <span class="board-rank">${i+1}</span>
+                        <span class="board-name">${b.board}</span>
+                        <div class="board-score-bar"><div class="board-score-fill" style="width:${pct}%"></div></div>
+                        <span class="board-score-num">${b.avg_total}</span>
+                        <span class="board-count">${b.count}只</span>
+                        <div class="board-tags">
+                            ${b.strong ? `<span class="tag-strong">↑${b.strong}</span>` : ''}
+                            ${b.weak ? `<span class="tag-weak">↓${b.weak}</span>` : ''}
+                        </div>
+                        <span class="board-chevron" id="chev-${i}">▶</span>
+                    </div>
+                    <div class="board-stocks" id="bstocks-${i}">
+                        ${renderStockTable(b.top_stocks, 'total', 'd_ex', 'd_cs', 'd_cb')}
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function toggleBoard(i) {
+            const el = document.getElementById('bstocks-' + i);
+            const chev = document.getElementById('chev-' + i);
+            const open = el.classList.toggle('open');
+            chev.classList.toggle('open', open);
+        }
+
+        async function loadDivergence() {
+            document.getElementById('divLoading').style.display = '';
+            document.getElementById('divError').style.display = 'none';
+            document.getElementById('divBoardList').innerHTML = '';
+            try {
+                const res = await fetch('/api/sector_divergence');
+                const json = await res.json();
+                if (!json.success) throw new Error(json.error);
+                _divData = json.data;
+                window._divLoaded = true;
+
+                const d = _divData.date;
+                const dateStr = d ? `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}` : '';
+                document.getElementById('divMeta').textContent =
+                    `${dateStr} | 日均成交额 ≥ 10亿 | 共 ${_divData.total_stocks} 只 | 日度近20日 + 周度近12周`;
+
+                renderBoardList(_divData.board_stats);
+                document.getElementById('divPanelDaily').innerHTML = renderStockTable(_divData.top20_d, 'd_sc', 'd_ex', 'd_cs', 'd_cb');
+                document.getElementById('divPanelWeekly').innerHTML = renderStockTable(_divData.top20_w, 'w_sc', 'w_ex', 'w_cs', 'w_cb');
+                document.getElementById('divPanelTotal').innerHTML = renderStockTable(_divData.top20, 'total', 'd_ex', 'd_cs', 'd_cb');
+            } catch(e) {
+                document.getElementById('divError').style.display = '';
+                document.getElementById('divError').textContent = '加载失败：' + e.message;
+            } finally {
+                document.getElementById('divLoading').style.display = 'none';
+            }
         }
 
         // 硬编码板块列表

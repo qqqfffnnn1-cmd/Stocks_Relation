@@ -225,37 +225,45 @@ def analyze_sectors():
 @app.route('/api/sector_divergence', methods=['GET'])
 def sector_divergence():
     """
-    读取最新的板块异类分析结果（来自 TK_MLAnalysis/output/sector_divergence_*.csv）
-    返回：板块分化排行 + 各板块 TOP 异类股
+    读取最新的板块异类分析结果。
+    优先读 TK_MLAnalysis/output/sector_divergence_*.csv（本地）；
+    若不存在则读 web/static/sector_divergence_snapshot.json（线上静态快照）。
     """
     import glob
     import csv
-    from datetime import datetime
 
     try:
+        rows = []
+        date_str = ''
+
+        # 1. 尝试本地 CSV
         output_dir = Path(__file__).parent.parent.parent / 'TK_MLAnalysis' / 'output'
         files = sorted(glob.glob(str(output_dir / 'sector_divergence_*.csv')), reverse=True)
-        if not files:
-            return jsonify({'success': False, 'error': '暂无数据，请先运行 sector_divergence.py'}), 404
-
-        latest = files[0]
-        date_str = Path(latest).stem.split('_')[-1]  # 20260303
-
-        rows = []
-        with open(latest, encoding='utf-8-sig') as f:
-            for r in csv.DictReader(f):
-                rows.append({
-                    'code': r['code'], 'name': r['name'], 'board': r['board'],
-                    'amt': float(r['amt']),
-                    'type': r['type'],
-                    'd_sc': float(r['d_sc']), 'd_co': float(r['d_co']),
-                    'd_di': float(r['d_di']), 'd_ex': float(r['d_ex']),
-                    'd_cs': float(r['d_cs']), 'd_cb': float(r['d_cb']),
-                    'w_sc': float(r['w_sc']), 'w_co': float(r['w_co']),
-                    'w_di': float(r['w_di']), 'w_ex': float(r['w_ex']),
-                    'w_cs': float(r['w_cs']), 'w_cb': float(r['w_cb']),
-                    'total': float(r['total']),
-                })
+        if files:
+            latest = files[0]
+            date_str = Path(latest).stem.split('_')[-1]
+            with open(latest, encoding='utf-8-sig') as f:
+                for r in csv.DictReader(f):
+                    rows.append({
+                        'code': r['code'], 'name': r['name'], 'board': r['board'],
+                        'amt': float(r['amt']), 'type': r['type'],
+                        'd_sc': float(r['d_sc']), 'd_co': float(r['d_co']),
+                        'd_di': float(r['d_di']), 'd_ex': float(r['d_ex']),
+                        'd_cs': float(r['d_cs']), 'd_cb': float(r['d_cb']),
+                        'w_sc': float(r['w_sc']), 'w_co': float(r['w_co']),
+                        'w_di': float(r['w_di']), 'w_ex': float(r['w_ex']),
+                        'w_cs': float(r['w_cs']), 'w_cb': float(r['w_cb']),
+                        'total': float(r['total']),
+                    })
+        else:
+            # 2. 线上静态快照
+            snapshot = Path(__file__).parent / 'static' / 'sector_divergence_snapshot.json'
+            if not snapshot.exists():
+                return jsonify({'success': False, 'error': '暂无数据，请先运行 sector_divergence.py'}), 404
+            import json as _json
+            snap = _json.loads(snapshot.read_text(encoding='utf-8'))
+            rows = snap['rows']
+            date_str = snap['date']
 
         # 板块分化排行（板块内平均异类分）
         from collections import defaultdict
