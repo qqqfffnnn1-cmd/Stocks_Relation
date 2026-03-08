@@ -663,7 +663,11 @@
         async function analyze() {
             const stock1Input = document.getElementById('stock1').value.trim();
             const stock2Input = document.getElementById('stock2').value.trim();
-            const days = parseInt(document.getElementById('days').value);
+            const select = document.getElementById('daysSelect');
+            const daysVal = select.value === 'custom'
+                ? document.getElementById('days').value
+                : select.value;
+            const days = parseInt(daysVal);
 
             // 提取股票代码
             const stock1 = extractStockCode(stock1Input);
