@@ -156,27 +156,42 @@ def analyze_sectors():
         import pandas as pd
         import numpy as np
         from scipy import stats
+        import yfinance as yf
 
-        start_date = (datetime.now() - timedelta(days=days)).strftime("%Y%m%d")
+        start_dt = datetime.now() - timedelta(days=days + 30)  # 多取一些保证够数据
+        start_str = start_dt.strftime("%Y-%m-%d")
 
         # 获取成分股
-        stocks1 = get_sector_stocks(sector1_code)[:30]  # 最多取30只
-        stocks2 = get_sector_stocks(sector2_code)[:30]
+        stocks1 = get_sector_stocks(sector1_code)[:20]  # 最多取20只
+        stocks2 = get_sector_stocks(sector2_code)[:20]
 
         if not stocks1 or not stocks2:
             return jsonify({'success': False, 'error': '无法获取板块成分股'}), 400
 
-        # 获取各板块每日平均涨跌幅
+        def to_yf_ticker(code):
+            """A股代码转Yahoo Finance格式"""
+            if code.startswith('6'):
+                return code + '.SS'
+            else:
+                return code + '.SZ'
+
+        # 用yfinance批量下载，获取各板块每日平均涨跌幅
         def get_sector_pct(stock_list):
-            frames = []
-            for code in stock_list:
-                df = query_engine.api.get_stock_hist(code, start_date=start_date)
-                if not df.empty and 'pct_change' in df.columns:
-                    frames.append(df.set_index('date')['pct_change'].rename(code))
-            if not frames:
+            tickers = [to_yf_ticker(c) for c in stock_list]
+            try:
+                raw = yf.download(tickers, start=start_str, progress=False, auto_adjust=True)
+                if raw.empty:
+                    return pd.Series(dtype=float)
+                # 取收盘价
+                if isinstance(raw.columns, pd.MultiIndex):
+                    close = raw['Close']
+                else:
+                    close = raw[['Close']]
+                pct = close.pct_change() * 100
+                return pct.mean(axis=1).dropna()
+            except Exception as e:
+                print(f"yfinance下载失败: {e}")
                 return pd.Series(dtype=float)
-            combined = pd.concat(frames, axis=1)
-            return combined.mean(axis=1).dropna()
 
         pct1 = get_sector_pct(stocks1)
         pct2 = get_sector_pct(stocks2)
