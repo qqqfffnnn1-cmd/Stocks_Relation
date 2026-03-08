@@ -333,6 +333,47 @@
                 font-size: 1.8em;
             }
         }
+        /* Tab 样式 */
+        .tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 24px;
+        }
+        .tab-btn {
+            padding: 10px 28px;
+            border: none;
+            border-radius: 8px 8px 0 0;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            background: rgba(255,255,255,0.25);
+            color: white;
+            transition: all 0.2s;
+        }
+        .tab-btn.active {
+            background: white;
+            color: #667eea;
+        }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* 板块选择器 */
+        .sector-select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            background: white;
+        }
+        .sector-result-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
@@ -343,7 +384,14 @@
             <p style="font-size: 0.9em; opacity: 0.75; margin-top: 6px;">请从下拉菜单选择具体标的</p>
         </div>
 
-        <div class="card">
+        <!-- Tab 切换 -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('stock')">个股对比</button>
+            <button class="tab-btn" onclick="switchTab('sector')">板块对比</button>
+        </div>
+
+        <!-- Tab 1: 个股对比 -->
+        <div id="tab-stock" class="tab-panel active">
             <div class="input-section">
                 <div class="input-group autocomplete-container">
                     <label for="stock1">股票 1（代码或名称）</label>
@@ -494,6 +542,86 @@
                 </div>
             </div>
         </div>
+        </div><!-- /tab-stock -->
+
+        <!-- Tab 2: 板块对比 -->
+        <div id="tab-sector" class="tab-panel">
+            <div class="card">
+                <div class="input-section">
+                    <div class="input-group">
+                        <label>板块 1</label>
+                        <select id="sector1" class="sector-select">
+                            <option value="">加载中...</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>板块 2</label>
+                        <select id="sector2" class="sector-select">
+                            <option value="">加载中...</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>分析天数</label>
+                        <select id="sectorDaysSelect" style="padding: 12px 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1em; background: white;">
+                            <option value="7">本周（7天）</option>
+                            <option value="30">本月（30天）</option>
+                            <option value="90" selected>近3个月（90天）</option>
+                            <option value="180">近6个月（180天）</option>
+                            <option value="365">近1年（365天）</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" id="sectorAnalyzeBtn" onclick="analyzeSectors()">开始分析</button>
+                </div>
+                <div id="sectorErrorMsg"></div>
+                <div id="sectorLoadingMsg" class="loading" style="display:none;">
+                    <div class="loading-spinner"></div>
+                    <p>正在分析板块数据，请稍候（约30秒）...</p>
+                </div>
+            </div>
+
+            <div id="sectorResultSection" class="result-section">
+                <div class="sector-result-card">
+                    <div>板块关联度评分</div>
+                    <div class="score-value" id="sectorScore">--</div>
+                    <div class="stars" id="sectorStars">--</div>
+                    <div class="score-grade" id="sectorGrade">--</div>
+                </div>
+                <div class="card">
+                    <div class="metric-card">
+                        <h3>📊 板块相关性指标</h3>
+                        <div class="metric-item">
+                            <span class="metric-label">板块 1</span>
+                            <span class="metric-value" id="sectorName1">--</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">板块 2</span>
+                            <span class="metric-value" id="sectorName2">--</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">涨跌幅相关系数</span>
+                            <span class="metric-value" id="sectorCorr">--</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">同涨同跌率</span>
+                            <span class="metric-value" id="sectorSync">--</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">有效交易日</span>
+                            <span class="metric-value" id="sectorDataPoints">--</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">板块1成分股数</span>
+                            <span class="metric-value" id="sectorCount1">--</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">板块2成分股数</span>
+                            <span class="metric-value" id="sectorCount2">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div><!-- /tab-sector -->
+
     </div>
 
     <!-- 使用说明 -->
@@ -822,7 +950,103 @@
                     }
                 });
             });
+
+            // 加载板块列表
+            loadSectors();
         });
+
+        // Tab 切换
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // 加载板块列表
+        async function loadSectors() {
+            try {
+                const resp = await fetch('/api/sectors');
+                const result = await resp.json();
+                if (!result.success || !result.data.length) return;
+
+                const options = result.data.map(s =>
+                    `<option value="${s.code}" data-name="${s.name}">${s.name}</option>`
+                ).join('');
+
+                document.getElementById('sector1').innerHTML = options;
+                document.getElementById('sector2').innerHTML = options;
+                // 默认让两个选不同
+                if (result.data.length > 1) {
+                    document.getElementById('sector2').selectedIndex = 1;
+                }
+            } catch(e) {
+                document.getElementById('sector1').innerHTML = '<option value="">加载失败，请刷新</option>';
+                document.getElementById('sector2').innerHTML = '<option value="">加载失败，请刷新</option>';
+            }
+        }
+
+        // 分析板块
+        async function analyzeSectors() {
+            const s1 = document.getElementById('sector1');
+            const s2 = document.getElementById('sector2');
+            const days = parseInt(document.getElementById('sectorDaysSelect').value);
+
+            const sector1Code = s1.value;
+            const sector2Code = s2.value;
+            const sector1Name = s1.options[s1.selectedIndex]?.dataset.name || sector1Code;
+            const sector2Name = s2.options[s2.selectedIndex]?.dataset.name || sector2Code;
+
+            document.getElementById('sectorErrorMsg').innerHTML = '';
+            document.getElementById('sectorResultSection').classList.remove('show');
+
+            if (!sector1Code || !sector2Code) {
+                document.getElementById('sectorErrorMsg').innerHTML = '<div class="error">请选择两个板块</div>';
+                return;
+            }
+            if (sector1Code === sector2Code) {
+                document.getElementById('sectorErrorMsg').innerHTML = '<div class="error">请选择不同的板块</div>';
+                return;
+            }
+
+            document.getElementById('sectorLoadingMsg').style.display = 'block';
+            document.getElementById('sectorAnalyzeBtn').disabled = true;
+
+            try {
+                const resp = await fetch('/api/analyze_sectors', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({sector1_code: sector1Code, sector2_code: sector2Code,
+                                         sector1_name: sector1Name, sector2_name: sector2Name, days})
+                });
+                const result = await resp.json();
+
+                if (!result.success) {
+                    document.getElementById('sectorErrorMsg').innerHTML = `<div class="error">${result.error}</div>`;
+                    return;
+                }
+
+                const d = result.data;
+                document.getElementById('sectorScore').textContent = d.score;
+                document.getElementById('sectorStars').textContent = d.stars;
+                document.getElementById('sectorGrade').textContent = d.grade;
+                document.getElementById('sectorName1').textContent = d.sector1.name;
+                document.getElementById('sectorName2').textContent = d.sector2.name;
+                document.getElementById('sectorCorr').textContent = d.correlation;
+                document.getElementById('sectorSync').textContent = (d.sync_rate * 100).toFixed(1) + '%';
+                document.getElementById('sectorDataPoints').textContent = d.data_points + ' 天';
+                document.getElementById('sectorCount1').textContent = d.sector1.stock_count + ' 只';
+                document.getElementById('sectorCount2').textContent = d.sector2.stock_count + ' 只';
+
+                document.getElementById('sectorResultSection').classList.add('show');
+                document.getElementById('sectorResultSection').scrollIntoView({behavior: 'smooth'});
+            } catch(e) {
+                document.getElementById('sectorErrorMsg').innerHTML = `<div class="error">网络错误: ${e.message}</div>`;
+            } finally {
+                document.getElementById('sectorLoadingMsg').style.display = 'none';
+                document.getElementById('sectorAnalyzeBtn').disabled = false;
+            }
+        }
     </script>
 </body>
 </html>

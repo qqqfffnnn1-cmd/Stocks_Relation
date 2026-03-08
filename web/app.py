@@ -12,6 +12,7 @@ import traceback
 project_root = Path(__file__).parent.parent
 sys.path.append(str(project_root))
 from data_sources.stock_mapper import get_mapper
+from data_sources.sector_api import get_sector_list, get_sector_stocks
 
 from api.query_engine import StockRelationQuery
 
@@ -123,7 +124,105 @@ def search_stock():
         }), 500
 
 
-@app.route('/api/health', methods=['GET'])
+@app.route('/api/sectors', methods=['GET'])
+def sectors():
+    """获取板块列表"""
+    try:
+        data = get_sector_list()
+        return jsonify({'success': True, 'data': data})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analyze_sectors', methods=['POST'])
+def analyze_sectors():
+    """
+    分析两个板块的关联度（取各板块涨跌幅均值作为板块指数）
+    """
+    try:
+        data = request.get_json()
+        sector1_code = data.get('sector1_code', '').strip()
+        sector2_code = data.get('sector2_code', '').strip()
+        sector1_name = data.get('sector1_name', sector1_code)
+        sector2_name = data.get('sector2_name', sector2_code)
+        days = int(data.get('days', 90))
+
+        if not sector1_code or not sector2_code:
+            return jsonify({'success': False, 'error': '请选择板块'}), 400
+        if days < 5 or days > 365:
+            return jsonify({'success': False, 'error': '分析天数必须在 5-365 之间'}), 400
+
+        from datetime import datetime, timedelta
+        import pandas as pd
+        import numpy as np
+        from scipy import stats
+
+        start_date = (datetime.now() - timedelta(days=days)).strftime("%Y%m%d")
+
+        # 获取成分股
+        stocks1 = get_sector_stocks(sector1_code)[:30]  # 最多取30只
+        stocks2 = get_sector_stocks(sector2_code)[:30]
+
+        if not stocks1 or not stocks2:
+            return jsonify({'success': False, 'error': '无法获取板块成分股'}), 400
+
+        # 获取各板块每日平均涨跌幅
+        def get_sector_pct(stock_list):
+            frames = []
+            for code in stock_list:
+                df = query_engine.api.get_stock_hist(code, start_date=start_date)
+                if not df.empty and 'pct_change' in df.columns:
+                    frames.append(df.set_index('date')['pct_change'].rename(code))
+            if not frames:
+                return pd.Series(dtype=float)
+            combined = pd.concat(frames, axis=1)
+            return combined.mean(axis=1).dropna()
+
+        pct1 = get_sector_pct(stocks1)
+        pct2 = get_sector_pct(stocks2)
+
+        merged = pd.concat([pct1.rename('s1'), pct2.rename('s2')], axis=1).dropna()
+
+        if len(merged) < 5:
+            return jsonify({'success': False, 'error': f'数据不足，仅有 {len(merged)} 个交易日重叠'}), 400
+
+        corr, p_value = stats.pearsonr(merged['s1'], merged['s2'])
+        sync = ((merged['s1'] > 0) == (merged['s2'] > 0)).mean()
+
+        # 评分
+        score = int(max(0, corr) * 40 + sync * 60)
+        if score >= 90:
+            grade, stars = "S (极强关联)", "★★★★★"
+        elif score >= 70:
+            grade, stars = "A (强关联)", "★★★★☆"
+        elif score >= 50:
+            grade, stars = "B (中等关联)", "★★★☆☆"
+        elif score >= 30:
+            grade, stars = "C (弱关联)", "★★☆☆☆"
+        else:
+            grade, stars = "D (无明显关联)", "★☆☆☆☆"
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'sector1': {'code': sector1_code, 'name': sector1_name, 'stock_count': len(stocks1)},
+                'sector2': {'code': sector2_code, 'name': sector2_name, 'stock_count': len(stocks2)},
+                'correlation': round(float(corr), 4),
+                'p_value': round(float(p_value), 4),
+                'sync_rate': round(float(sync), 4),
+                'data_points': len(merged),
+                'score': score,
+                'grade': grade,
+                'stars': stars,
+            }
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': f'服务器错误: {str(e)}'}), 500
+
+
+
 def health():
     """健康检查"""
     return jsonify({
