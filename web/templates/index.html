@@ -357,22 +357,37 @@
         .tab-panel { display: none; }
         .tab-panel.active { display: block; }
 
-        /* 板块选择器 */
-        .sector-select {
-            width: 100%;
-            padding: 12px 15px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 1em;
-            background: white;
+        /* 板块按钮 */
+        .sector-search {
+            width: 100%; padding: 10px 14px; border: 2px solid #e0e0e0;
+            border-radius: 8px; font-size: 0.95em; margin-bottom: 12px;
         }
+        .sector-btn-grid {
+            display: flex; flex-wrap: wrap; gap: 8px;
+            max-height: 260px; overflow-y: auto; padding: 4px 0;
+        }
+        .sector-btn {
+            padding: 6px 14px; border: 2px solid #e0e0e0; border-radius: 20px;
+            background: white; font-size: 0.85em; cursor: pointer; transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .sector-btn:hover { border-color: #667eea; color: #667eea; }
+        .sector-btn.selected-1 { background: #667eea; border-color: #667eea; color: white; }
+        .sector-btn.selected-2 { background: #764ba2; border-color: #764ba2; color: white; }
+        .sector-selected-bar {
+            display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+            padding: 12px 16px; background: #f8f9fa; border-radius: 8px; margin-bottom: 16px;
+            font-size: 0.9em;
+        }
+        .sector-tag {
+            padding: 4px 12px; border-radius: 12px; color: white; font-weight: 600;
+        }
+        .sector-tag-1 { background: #667eea; }
+        .sector-tag-2 { background: #764ba2; }
         .sector-result-card {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            border-radius: 12px;
-            text-align: center;
-            margin-bottom: 20px;
+            color: white; padding: 30px; border-radius: 12px;
+            text-align: center; margin-bottom: 20px;
         }
     </style>
 </head>
@@ -547,22 +562,24 @@
         <!-- Tab 2: 板块对比 -->
         <div id="tab-sector" class="tab-panel">
             <div class="card">
-                <div class="input-section">
-                    <div class="input-group">
-                        <label>板块 1</label>
-                        <select id="sector1" class="sector-select">
-                            <option value="">加载中...</option>
-                        </select>
-                    </div>
-                    <div class="input-group">
-                        <label>板块 2</label>
-                        <select id="sector2" class="sector-select">
-                            <option value="">加载中...</option>
-                        </select>
-                    </div>
-                    <div class="input-group">
+                <!-- 已选板块显示 -->
+                <div class="sector-selected-bar">
+                    <span style="color:#666;">已选：</span>
+                    <span id="selectedTag1" style="display:none;" class="sector-tag sector-tag-1"></span>
+                    <span id="selectedTag2" style="display:none;" class="sector-tag sector-tag-2"></span>
+                    <span id="selectedHint" style="color:#999;">请点击下方按钮选择两个板块</span>
+                </div>
+
+                <!-- 搜索框 -->
+                <input type="text" class="sector-search" id="sectorSearch" placeholder="搜索板块名称..." oninput="filterSectors()">
+
+                <!-- 板块按钮网格 -->
+                <div class="sector-btn-grid" id="sectorBtnGrid"></div>
+
+                <div style="margin-top:16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                    <div class="input-group" style="flex:0 0 auto;">
                         <label>分析天数</label>
-                        <select id="sectorDaysSelect" style="padding: 12px 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1em; background: white;">
+                        <select id="sectorDaysSelect" style="padding: 10px 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1em; background: white;">
                             <option value="7">本周（7天）</option>
                             <option value="30">本月（30天）</option>
                             <option value="90" selected>近3个月（90天）</option>
@@ -570,8 +587,10 @@
                             <option value="365">近1年（365天）</option>
                         </select>
                     </div>
-                    <button class="btn btn-primary" id="sectorAnalyzeBtn" onclick="analyzeSectors()">开始分析</button>
+                    <button class="btn btn-primary" id="sectorAnalyzeBtn" onclick="analyzeSectors()" style="align-self:flex-end;">开始分析</button>
+                    <button onclick="clearSectorSelection()" style="align-self:flex-end; padding:10px 18px; border:2px solid #e0e0e0; border-radius:8px; background:white; cursor:pointer; font-size:0.95em;">清除选择</button>
                 </div>
+
                 <div id="sectorErrorMsg"></div>
                 <div id="sectorLoadingMsg" class="loading" style="display:none;">
                     <div class="loading-spinner"></div>
@@ -963,52 +982,101 @@
             event.target.classList.add('active');
         }
 
-        // 加载板块列表
-        async function loadSectors() {
-            try {
-                const resp = await fetch('/api/sectors');
-                const result = await resp.json();
-                if (!result.success || !result.data.length) return;
+        // 硬编码板块列表
+        const SECTORS = [
+            {code:"BK0493",name:"光模块"},{code:"BK0732",name:"CPO概念"},{code:"BK0816",name:"AI算力"},
+            {code:"BK0815",name:"AI应用"},{code:"BK0735",name:"人形机器人"},{code:"BK0734",name:"低空经济"},
+            {code:"BK0733",name:"固态电池"},{code:"BK0892",name:"DeepSeek概念"},{code:"BK0891",name:"MR眼镜"},
+            {code:"BK0890",name:"卫星互联网"},{code:"BK0889",name:"量子计算"},{code:"BK0888",name:"核电核能"},
+            {code:"BK0887",name:"商业航天"},{code:"BK0886",name:"智能驾驶"},{code:"BK0885",name:"新能源车"},
+            {code:"BK0884",name:"储能"},{code:"BK0883",name:"光伏"},{code:"BK0882",name:"风电"},
+            {code:"BK0881",name:"氢能"},{code:"BK0880",name:"半导体"},{code:"BK0879",name:"芯片"},
+            {code:"BK0878",name:"存储芯片"},{code:"BK0877",name:"GPU"},{code:"BK0876",name:"PCB"},
+            {code:"BK0875",name:"被动元件"},{code:"BK0874",name:"消费电子"},{code:"BK0873",name:"苹果概念"},
+            {code:"BK0872",name:"折叠屏"},{code:"BK0871",name:"5G"},{code:"BK0870",name:"物联网"},
+            {code:"BK0869",name:"云计算"},{code:"BK0868",name:"大数据"},{code:"BK0867",name:"网络安全"},
+            {code:"BK0866",name:"工业互联网"},{code:"BK0865",name:"数字经济"},{code:"BK0864",name:"元宇宙"},
+            {code:"BK0863",name:"区块链"},{code:"BK0862",name:"数字货币"},{code:"BK0861",name:"软件"},
+            {code:"BK0860",name:"游戏"},{code:"BK0859",name:"影视"},{code:"BK0858",name:"传媒"},
+            {code:"BK0857",name:"教育"},{code:"BK0856",name:"医疗器械"},{code:"BK0855",name:"创新药"},
+            {code:"BK0854",name:"CXO"},{code:"BK0853",name:"中药"},{code:"BK0852",name:"医美"},
+            {code:"BK0851",name:"基因检测"},{code:"BK0850",name:"疫苗"},{code:"BK0849",name:"化学制药"},
+            {code:"BK0848",name:"生物制品"},{code:"BK0847",name:"银行"},{code:"BK0846",name:"券商"},
+            {code:"BK0845",name:"保险"},{code:"BK0844",name:"房地产"},{code:"BK0843",name:"建筑"},
+            {code:"BK0842",name:"建材"},{code:"BK0841",name:"钢铁"},{code:"BK0840",name:"有色金属"},
+            {code:"BK0839",name:"黄金"},{code:"BK0838",name:"铜"},{code:"BK0837",name:"锂电池"},
+            {code:"BK0836",name:"锂矿"},{code:"BK0835",name:"钴"},{code:"BK0834",name:"稀土"},
+            {code:"BK0833",name:"化工"},{code:"BK0832",name:"农业"},{code:"BK0831",name:"食品饮料"},
+            {code:"BK0830",name:"白酒"},{code:"BK0829",name:"啤酒"},{code:"BK0828",name:"乳制品"},
+            {code:"BK0827",name:"调味品"},{code:"BK0826",name:"零售"},{code:"BK0825",name:"电商"},
+            {code:"BK0824",name:"物流"},{code:"BK0823",name:"航空"},{code:"BK0822",name:"机场"},
+            {code:"BK0821",name:"港口"},{code:"BK0820",name:"铁路"},{code:"BK0819",name:"汽车"},
+            {code:"BK0818",name:"汽车零部件"},{code:"BK0817",name:"工程机械"},{code:"BK0814",name:"军工"},
+            {code:"BK0813",name:"航天"},{code:"BK0812",name:"船舶"},{code:"BK0811",name:"电力"},
+            {code:"BK0810",name:"煤炭"},{code:"BK0809",name:"石油"},{code:"BK0808",name:"天然气"},
+            {code:"BK0807",name:"水务"},{code:"BK0806",name:"环保"},{code:"BK0805",name:"纺织服装"},
+            {code:"BK0804",name:"家电"},{code:"BK0803",name:"家居"},{code:"BK0802",name:"装修"},
+            {code:"BK0801",name:"旅游"},{code:"BK0800",name:"酒店"},{code:"BK0799",name:"养老"},
+            {code:"BK0798",name:"医疗服务"},
+        ];
 
-                const options = result.data.map(s =>
-                    `<option value="${s.code}" data-name="${s.name}">${s.name}</option>`
-                ).join('');
+        let selectedSector1 = null;
+        let selectedSector2 = null;
 
-                document.getElementById('sector1').innerHTML = options;
-                document.getElementById('sector2').innerHTML = options;
-                // 默认让两个选不同
-                if (result.data.length > 1) {
-                    document.getElementById('sector2').selectedIndex = 1;
-                }
-            } catch(e) {
-                document.getElementById('sector1').innerHTML = '<option value="">加载失败，请刷新</option>';
-                document.getElementById('sector2').innerHTML = '<option value="">加载失败，请刷新</option>';
-            }
+        function loadSectors() { renderSectorBtns(SECTORS); }
+
+        function renderSectorBtns(list) {
+            const grid = document.getElementById('sectorBtnGrid');
+            grid.innerHTML = list.map(s => {
+                let cls = 'sector-btn';
+                if (selectedSector1 && selectedSector1.code === s.code) cls += ' selected-1';
+                if (selectedSector2 && selectedSector2.code === s.code) cls += ' selected-2';
+                return `<button class="${cls}" onclick="selectSector('${s.code}','${s.name}')">${s.name}</button>`;
+            }).join('');
         }
 
-        // 分析板块
+        function filterSectors() {
+            const kw = document.getElementById('sectorSearch').value.trim();
+            renderSectorBtns(kw ? SECTORS.filter(s => s.name.includes(kw)) : SECTORS);
+        }
+
+        function selectSector(code, name) {
+            if (selectedSector1 && selectedSector1.code === code) { selectedSector1 = null; }
+            else if (selectedSector2 && selectedSector2.code === code) { selectedSector2 = null; }
+            else if (!selectedSector1) { selectedSector1 = {code, name}; }
+            else if (!selectedSector2) { selectedSector2 = {code, name}; }
+            else { selectedSector1 = selectedSector2; selectedSector2 = {code, name}; }
+            updateSectorSelectedBar();
+            filterSectors();
+        }
+
+        function updateSectorSelectedBar() {
+            const tag1 = document.getElementById('selectedTag1');
+            const tag2 = document.getElementById('selectedTag2');
+            const hint = document.getElementById('selectedHint');
+            if (selectedSector1) { tag1.textContent = '① ' + selectedSector1.name; tag1.style.display = ''; }
+            else { tag1.style.display = 'none'; }
+            if (selectedSector2) { tag2.textContent = '② ' + selectedSector2.name; tag2.style.display = ''; }
+            else { tag2.style.display = 'none'; }
+            if (!selectedSector1 && !selectedSector2) hint.textContent = '请点击下方按钮选择两个板块';
+            else if (selectedSector1 && !selectedSector2) hint.textContent = '再选一个板块';
+            else hint.textContent = '';
+            hint.style.display = (selectedSector1 && selectedSector2) ? 'none' : '';
+        }
+
+        function clearSectorSelection() {
+            selectedSector1 = null; selectedSector2 = null;
+            updateSectorSelectedBar(); filterSectors();
+        }
+
         async function analyzeSectors() {
-            const s1 = document.getElementById('sector1');
-            const s2 = document.getElementById('sector2');
-            const days = parseInt(document.getElementById('sectorDaysSelect').value);
-
-            const sector1Code = s1.value;
-            const sector2Code = s2.value;
-            const sector1Name = s1.options[s1.selectedIndex]?.dataset.name || sector1Code;
-            const sector2Name = s2.options[s2.selectedIndex]?.dataset.name || sector2Code;
-
-            document.getElementById('sectorErrorMsg').innerHTML = '';
-            document.getElementById('sectorResultSection').classList.remove('show');
-
-            if (!sector1Code || !sector2Code) {
+            if (!selectedSector1 || !selectedSector2) {
                 document.getElementById('sectorErrorMsg').innerHTML = '<div class="error">请选择两个板块</div>';
                 return;
             }
-            if (sector1Code === sector2Code) {
-                document.getElementById('sectorErrorMsg').innerHTML = '<div class="error">请选择不同的板块</div>';
-                return;
-            }
-
+            const days = parseInt(document.getElementById('sectorDaysSelect').value);
+            document.getElementById('sectorErrorMsg').innerHTML = '';
+            document.getElementById('sectorResultSection').classList.remove('show');
             document.getElementById('sectorLoadingMsg').style.display = 'block';
             document.getElementById('sectorAnalyzeBtn').disabled = true;
 
@@ -1016,16 +1084,16 @@
                 const resp = await fetch('/api/analyze_sectors', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({sector1_code: sector1Code, sector2_code: sector2Code,
-                                         sector1_name: sector1Name, sector2_name: sector2Name, days})
+                    body: JSON.stringify({
+                        sector1_code: selectedSector1.code, sector1_name: selectedSector1.name,
+                        sector2_code: selectedSector2.code, sector2_name: selectedSector2.name, days
+                    })
                 });
                 const result = await resp.json();
-
                 if (!result.success) {
                     document.getElementById('sectorErrorMsg').innerHTML = `<div class="error">${result.error}</div>`;
                     return;
                 }
-
                 const d = result.data;
                 document.getElementById('sectorScore').textContent = d.score;
                 document.getElementById('sectorStars').textContent = d.stars;
@@ -1037,7 +1105,6 @@
                 document.getElementById('sectorDataPoints').textContent = d.data_points + ' 天';
                 document.getElementById('sectorCount1').textContent = d.sector1.stock_count + ' 只';
                 document.getElementById('sectorCount2').textContent = d.sector2.stock_count + ' 只';
-
                 document.getElementById('sectorResultSection').classList.add('show');
                 document.getElementById('sectorResultSection').scrollIntoView({behavior: 'smooth'});
             } catch(e) {
