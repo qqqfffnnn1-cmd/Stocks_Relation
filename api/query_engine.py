@@ -50,20 +50,24 @@ class StockRelationQuery:
         if not info1:
             info1 = {
                 'code': stock1,
-                'name': self.mapper.get_name(stock1),
+                'name': self.mapper.get_name(stock1) or stock1,
                 'industry': '',
                 'latest_price': 0.0,
                 'pct_change': 0.0
             }
+        else:
+            info1['name'] = self.mapper.get_name(stock1) or stock1
 
         if not info2:
             info2 = {
                 'code': stock2,
-                'name': self.mapper.get_name(stock2),
+                'name': self.mapper.get_name(stock2) or stock2,
                 'industry': '',
                 'latest_price': 0.0,
                 'pct_change': 0.0
             }
+        else:
+            info2['name'] = self.mapper.get_name(stock2) or stock2
 
         # 2. 获取历史行情
         print("[2/4] 获取历史行情数据...")
