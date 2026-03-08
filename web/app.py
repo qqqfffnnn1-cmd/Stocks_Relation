@@ -222,6 +222,91 @@ def analyze_sectors():
         return jsonify({'success': False, 'error': f'服务器错误: {str(e)}'}), 500
 
 
+@app.route('/api/sector_divergence', methods=['GET'])
+def sector_divergence():
+    """
+    读取最新的板块异类分析结果（来自 TK_MLAnalysis/output/sector_divergence_*.csv）
+    返回：板块分化排行 + 各板块 TOP 异类股
+    """
+    import glob
+    import csv
+    from datetime import datetime
+
+    try:
+        output_dir = Path(__file__).parent.parent.parent / 'TK_MLAnalysis' / 'output'
+        files = sorted(glob.glob(str(output_dir / 'sector_divergence_*.csv')), reverse=True)
+        if not files:
+            return jsonify({'success': False, 'error': '暂无数据，请先运行 sector_divergence.py'}), 404
+
+        latest = files[0]
+        date_str = Path(latest).stem.split('_')[-1]  # 20260303
+
+        rows = []
+        with open(latest, encoding='utf-8-sig') as f:
+            for r in csv.DictReader(f):
+                rows.append({
+                    'code': r['code'], 'name': r['name'], 'board': r['board'],
+                    'amt': float(r['amt']),
+                    'type': r['type'],
+                    'd_sc': float(r['d_sc']), 'd_co': float(r['d_co']),
+                    'd_di': float(r['d_di']), 'd_ex': float(r['d_ex']),
+                    'd_cs': float(r['d_cs']), 'd_cb': float(r['d_cb']),
+                    'w_sc': float(r['w_sc']), 'w_co': float(r['w_co']),
+                    'w_di': float(r['w_di']), 'w_ex': float(r['w_ex']),
+                    'w_cs': float(r['w_cs']), 'w_cb': float(r['w_cb']),
+                    'total': float(r['total']),
+                })
+
+        # 板块分化排行（板块内平均异类分）
+        from collections import defaultdict
+        board_map = defaultdict(list)
+        for r in rows:
+            board_map[r['board']].append(r)
+
+        board_stats = []
+        for board, stocks in board_map.items():
+            n = len(stocks)
+            avg_total = sum(s['total'] for s in stocks) / n
+            avg_d = sum(s['d_sc'] for s in stocks) / n
+            avg_w = sum(s['w_sc'] for s in stocks) / n
+            strong = sum(1 for s in stocks if s['type'] == '独立走强')
+            weak = sum(1 for s in stocks if s['type'] == '独立走弱')
+            # 取综合分最高的前15只作为代表
+            top_stocks = sorted(stocks, key=lambda x: x['total'], reverse=True)[:15]
+            board_stats.append({
+                'board': board, 'count': n,
+                'avg_total': round(avg_total, 1),
+                'avg_d': round(avg_d, 1),
+                'avg_w': round(avg_w, 1),
+                'strong': strong, 'weak': weak,
+                'top_stocks': top_stocks,
+            })
+        board_stats.sort(key=lambda x: x['avg_total'], reverse=True)
+
+        # 综合异类 TOP20
+        top20 = sorted(rows, key=lambda x: x['total'], reverse=True)[:20]
+        # 日度 TOP20
+        top20_d = sorted(rows, key=lambda x: x['d_sc'], reverse=True)[:20]
+        # 周度 TOP20
+        top20_w = sorted(rows, key=lambda x: x['w_sc'], reverse=True)[:20]
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'date': date_str,
+                'total_stocks': len(rows),
+                'board_stats': board_stats,
+                'top20': top20,
+                'top20_d': top20_d,
+                'top20_w': top20_w,
+            }
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/health', methods=['GET'])
 def health():
     """健康检查"""
