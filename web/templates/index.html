@@ -488,7 +488,32 @@
         </div>
     </div>
 
-    <div style="text-align: center; color: rgba(255,255,255,0.6); padding: 20px 0 10px; font-size: 0.85em;">
+    <!-- 使用说明 -->
+    <div style="max-width: 1200px; margin: 0 auto 30px; background: rgba(255,255,255,0.12); border-radius: 12px; padding: 24px 30px; color: rgba(255,255,255,0.9);">
+        <h3 style="margin-bottom: 16px; font-size: 1.05em; letter-spacing: 0.05em;">📖 使用说明</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; font-size: 0.88em; line-height: 1.8;">
+            <div>
+                <p style="font-weight: 600; margin-bottom: 6px;">如何使用</p>
+                <p>1. 在股票 1 / 股票 2 输入框中输入股票名称或代码</p>
+                <p>2. 从下拉菜单中选择具体标的（必须从下拉选择，否则无法识别）</p>
+                <p>3. 设置分析天数，点击「开始分析」</p>
+            </div>
+            <div>
+                <p style="font-weight: 600; margin-bottom: 6px;">规则与限制</p>
+                <p>· 分析天数范围：5 ~ 365 天</p>
+                <p>· 至少需要 5 个交易日的重叠数据，天数过短可能导致分析失败</p>
+                <p>· 仅支持 A 股（沪深两市），数据来源为腾讯财经</p>
+                <p>· 资金共振分析依赖龙虎榜数据，部分股票可能显示「暂无数据」</p>
+            </div>
+        </div>
+        <div style="margin-top: 16px; font-size: 0.88em; line-height: 1.8;">
+            <p style="font-weight: 600; margin-bottom: 6px;">评分说明</p>
+            <p>综合评分 = 价格联动分（0~100）+ 资金共振加分（0~30），满分 130 分</p>
+            <p>S 级 ≥ 100 &nbsp;|&nbsp; A 级 ≥ 70 &nbsp;|&nbsp; B 级 ≥ 40 &nbsp;|&nbsp; C 级 ≥ 20 &nbsp;|&nbsp; D 级 &lt; 20</p>
+        </div>
+    </div>
+
+    <div style="text-align: center; color: rgba(255,255,255,0.6); padding: 0 0 20px; font-size: 0.85em;">
         Copyright &copy; Fiona Qu
     </div>
 
