@@ -36,9 +36,9 @@ class PriceCorrelationAnalyzer:
             suffixes=('_1', '_2')
         )
 
-        if len(merged) < 10:
+        if len(merged) < 5:
             return {
-                'error': '数据不足，至少需要10个交易日',
+                'error': '数据不足，至少需要5个交易日',
                 'data_points': len(merged)
             }
 

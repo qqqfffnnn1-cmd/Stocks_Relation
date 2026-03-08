@@ -57,7 +57,7 @@ def analyze():
                 'error': '请输入股票代码'
             }), 400
 
-        if days < 10 or days > 365:
+        if days < 5 or days > 365:
             return jsonify({
                 'success': False,
                 'error': '分析天数必须在 10-365 之间'
