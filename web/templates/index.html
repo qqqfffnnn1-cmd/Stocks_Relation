@@ -357,7 +357,15 @@
                 </div>
                 <div class="input-group">
                     <label for="days">分析天数</label>
-                    <input type="number" id="days" placeholder="5-365" value="90" min="5" max="365">
+                    <select id="daysSelect" onchange="onDaysSelectChange()" style="padding: 12px 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1em; transition: all 0.3s; background: white;">
+                        <option value="7">本周（7天）</option>
+                        <option value="30">本月（30天）</option>
+                        <option value="90" selected>近3个月（90天）</option>
+                        <option value="180">近6个月（180天）</option>
+                        <option value="365">近1年（365天）</option>
+                        <option value="custom">自定义</option>
+                    </select>
+                    <input type="number" id="days" placeholder="5-365" value="90" min="5" max="365" style="display:none; margin-top: 6px; padding: 12px 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1em;">
                 </div>
                 <button class="btn btn-primary" id="analyzeBtn" onclick="analyze()">开始分析</button>
             </div>
@@ -523,6 +531,19 @@
         let selectedStock2 = '';
         let searchTimeout1 = null;
         let searchTimeout2 = null;
+
+        function onDaysSelectChange() {
+            const select = document.getElementById('daysSelect');
+            const input = document.getElementById('days');
+            if (select.value === 'custom') {
+                input.style.display = 'block';
+                input.value = '';
+                input.focus();
+            } else {
+                input.style.display = 'none';
+                input.value = select.value;
+            }
+        }
 
         // 初始化自动补全
         function initAutocomplete() {
