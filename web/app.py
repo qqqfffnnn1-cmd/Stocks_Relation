@@ -222,7 +222,7 @@ def analyze_sectors():
         return jsonify({'success': False, 'error': f'服务器错误: {str(e)}'}), 500
 
 
-
+@app.route('/api/health', methods=['GET'])
 def health():
     """健康检查"""
     return jsonify({
